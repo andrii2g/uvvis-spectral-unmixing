@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from plots import plot_concentrations, plot_conditioning, plot_spectra
 from spectral import TRUE_CONCENTRATIONS_M, WAVELENGTHS_NM, fit_mixture, molar_absorptivity
 
 
@@ -69,10 +70,20 @@ def main():
         writer.writeheader()
         writer.writerows(rows)
 
-    _, fit = simulate(molar_absorptivity(args.spacing), noise_samples[0])
+    bands = molar_absorptivity(args.spacing)
+    measured, fit = simulate(bands, noise_samples[0])
+    cases = [(args.spacing, fit)]
+    if args.spacing != STRESS_SPACING_NM:
+        _, stress_fit = simulate(molar_absorptivity(STRESS_SPACING_NM), noise_samples[0])
+        cases.append((STRESS_SPACING_NM, stress_fit))
+
+    plot_spectra(args.output_dir / "spectra.svg", args.spacing, bands, measured, fit)
+    plot_concentrations(args.output_dir / "concentrations.svg", cases)
+    plot_conditioning(args.output_dir / "conditioning.svg", sorted(SWEEP_SPACINGS_NM), rows, args.noise)
+
     print(f"Demo spacing {args.spacing:g} nm, noise SD {args.noise:g} AU")
-    print("True concentrations (µM):", np.round(TRUE_CONCENTRATIONS_M * 1e6, 3))
-    print("Fitted concentrations (µM):", np.round(fit.concentrations_m * 1e6, 3))
+    print("True concentrations (uM):", np.round(TRUE_CONCENTRATIONS_M * 1e6, 3))
+    print("Fitted concentrations (uM):", np.round(fit.concentrations_m * 1e6, 3))
     print(f"Rank {fit.rank}/3, condition number {fit.condition_number:.3g}")
     print(f"Relative error {fit.relative_concentration_error:.2%}, residual RMSE {fit.residual_rmse:.4g} AU")
     if fit.rank < TRUE_CONCENTRATIONS_M.size:
